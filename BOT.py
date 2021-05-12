@@ -29,7 +29,7 @@ async def fuck(ctx):
 @bot.command()
 async def ping(ctx):
   lag=round(bot.latency*1000)
-  await ctx.send(f'我..很LAG 延遲是 {lag} ms')
+  await ctx.send(f'我...很LAG 延遲是 {lag} ms')
 
 @bot.command()
 async def game(ctx):
