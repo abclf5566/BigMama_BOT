@@ -8,7 +8,7 @@ import os
 with open('setting.json',mode='r',encoding='utf8') as jfile:
   data=json.load(jfile)
 
-bot = commands.Bot(command_prefix=".")
+bot = commands.Bot(command_prefix="!",intents=None)
 
 @bot.event
 async def on_ready():
@@ -33,7 +33,7 @@ async def game(ctx):
   answer=range(0,100)
   num=int(input())
 
-for filename in os.listdir('./BigMama_BOT/cmds'):
+for filename in os.listdir('../BigMama_BOT/cmds'):
   if filename.endswith('.py') and not(filename.startswith('__')):
     bot.load_extension(filename[:-3])
 
