@@ -6,7 +6,6 @@ from core.classes import Cog_extension
 
 class Main(Cog_extensioin.Cog):
 
-
     @commands.command()
     async def ping(self,ctx):
         lag=round(self.bot.latency*1000)
