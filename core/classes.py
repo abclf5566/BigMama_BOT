@@ -14,16 +14,16 @@ import pandas as pd
 import time
 from datetime import datetime
 class TradingBot:
-    def __init__(self, api_key, secret, password):
+    def __init__(self, api_key, secret, password, KlineNum = 10, KlineNum2 = 8, az = 0.08, signal_threshold = 0.09):
         self.exchange = ccxt.okx({
             'apiKey': api_key,
             'secret': secret,
             'password': password
         })
-        self.KlineNum = 10
-        self.KlineNum2 = 8
-        self.az = 0.08
-        self.signal_threshold = 0.09
+        self.KlineNum = KlineNum
+        self.KlineNum2 = KlineNum2
+        self.az = az
+        self.signal_threshold = signal_threshold
 
     def calculate_ema(self, data, window):
         return pd.Series([x[4] for x in data]).ewm(span=window, adjust=False).mean()
@@ -237,8 +237,8 @@ class TradingBot:
             time.sleep(1)
         
 # 使用示例
-api_key = '0de1ec2d-9261-4915-9104-519294dd9c7e'
-secret = 'F58CBB3F57E902C0FF702C33F05008C0'
-password = '!Aa5566288'
+api_key = 'api_key'
+secret = 'secret'
+password = 'password'
 bot = TradingBot(api_key, secret, password)
 bot.run()
