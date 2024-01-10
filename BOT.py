@@ -108,7 +108,7 @@ class APIModal(Modal):
             else:
                 raise Exception("保存信息/API 調用時出錯")
         except Exception as e:
-            print(f"用戶{self.user_id}保存信息時出錯 {e}")
+            print(f"用戶: {self.user_id}保存信息時出錯 {e}")
             error_message = str(e)
             await interaction.response.send_message(f"保存信息時發生錯誤：{error_message}請檢查OKX API", ephemeral=True)
 
