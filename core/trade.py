@@ -5,7 +5,7 @@ import time
 from datetime import datetime
 
 class TradingBot:
-    def __init__(self, api_key, symbol_2,secret, password, KlineNum = 10, KlineNum2 = 8, az = 0.08, signal_threshold = 0.09):
+    def __init__(self, symbol_2, api_key, secret, password, KlineNum = 10, KlineNum2 = 8, az = 0.08, signal_threshold = 0.09):
         self.exchange = ccxt.okx({
             'apiKey': api_key,
             'secret': secret,
@@ -229,9 +229,9 @@ class TradingBot:
             time.sleep(1)
         
 # 使用示例
-api_key = '7c497df8-4c9a-4524-aa09-a2ed717b18ea'
-secret = '66963B0944C4A540F796BE86C9EB6A4C'
-password = '!Aa5566288'
+api_key = 'api_key'
+secret = 'secret'
+password = '!password'
 symbol_2 = 'AVAX'
 bot = TradingBot(symbol_2, api_key, secret, password)
 bot.run()

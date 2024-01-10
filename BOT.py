@@ -1,6 +1,7 @@
 import json
 import discord
 from discord.ui import Modal, TextInput
+from discord.ui import Button, View
 from discord.ext import commands
 from discord import app_commands
 import os
@@ -55,9 +56,45 @@ async def fuck(ctx):
 async def test_command(interaction: discord.Interaction):
     await interaction.response.send_message("測試命令被成功執行！")
 
+class ChoiceView(View):
+    def __init__(self, user_id):
+        super().__init__(timeout=30)
+        self.user_id = user_id
+        self.choice = None
+        self.modal_sent = False  # 添加一个标记来跟踪是否已发送模态对话框
+
+    @discord.ui.button(label="幫我選",  style=discord.ButtonStyle.primary, emoji="😎")
+    async def choose_for_me_button(self, interaction: discord.Interaction, button: Button):
+        self.choice = "ETH"  # 预设选择 ETH
+        self.stop()
+        modal = APIModal(user_id=self.user_id, choice=self.choice)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="SOL", style=discord.ButtonStyle.secondary)
+    async def sol_button(self, interaction: discord.Interaction, button: Button):
+        self.choice = "SOL"
+        self.stop()
+        modal = APIModal(user_id=self.user_id, choice=self.choice)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="ETH", style=discord.ButtonStyle.secondary)
+    async def eth_button(self, interaction: discord.Interaction, button: Button):
+        self.choice = "ETH"
+        self.stop()
+        modal = APIModal(user_id=self.user_id, choice=self.choice)
+        await interaction.response.send_modal(modal)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        return str(interaction.user.id) == self.user_id
+
+    async def on_timeout(self):
+        self.choice = None  # 如果超时，则设置选择为 None
+
+
 class APIModal(Modal):
-    def __init__(self, user_id, title="輸入您的OKX API Key"):
+    def __init__(self, user_id, choice, title="輸入您的OKX API Key"):
         super().__init__(title=title)
+        self.choice = choice #按鈕資訊保存
         self.user_id = user_id
         self.api_key = TextInput(label="API Key ", style=discord.TextStyle.short ,min_length= 36, max_length=36)
         self.secret = TextInput(label="Secret", style=discord.TextStyle.short ,min_length= 32, max_length=32)
@@ -83,6 +120,9 @@ class APIModal(Modal):
             return True
       except Exception as e: 
         print(f"用戶: {self.user_id} 調用api_test失敗")
+        if os.path.exists(f'./userinfo/{self.user_id}.json'):
+          os.remove(f'./userinfo/{self.user_id}.json')
+          print(f'已經移除 {self.user_id} 資訊')
         return False
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -95,7 +135,8 @@ class APIModal(Modal):
             "username": interaction.user.name,
             "user_id": interaction.user.id,
             "discriminator": interaction.user.discriminator,
-            "api_keys": api_keys
+            "api_keys": api_keys,
+            "symbol_2": self.choice #用戶按鈕選擇保存
         }
 
         try:
@@ -114,8 +155,10 @@ class APIModal(Modal):
 
 @bot.tree.command(name='trade', description="Trade command")
 async def trade_command(interaction: discord.Interaction):
-    modal = APIModal(user_id=str(interaction.user.id))
-    await interaction.response.send_modal(modal)
+    view = ChoiceView(user_id=str(interaction.user.id))
+    await interaction.response.send_message("請選擇一個選項:", view=view, ephemeral=True)
+    await view.wait()
+
 
 if __name__ == "__main__":
   bot.run(data['token'])
