@@ -1,22 +1,32 @@
-import ccxt
+import pandas as pd
 
-class YourClass:
-    def api_test(self, api_key, secret, password):
-        exchange = ccxt.okx({
-            'apiKey': api_key,
-            'secret': secret,
-            'password': password,
-            'enableRateLimit': True,
-        })
+# 假設你的CSV文件名為 'BTC_USDT_1d.csv'
+file_name = 'BTC_USDT_1d.csv'
 
-        try:
-            balance = exchange.fetch_balance()
-            print("連接成功，您的帳戶餘額如下：")
-            print(balance)
-        except Exception as e:
-            print("連接失敗，錯誤信息：")
-            print(e)
+# 讀取CSV文件
+df = pd.read_csv(file_name)
+data = df['Close'].tolist()  # 假設收盤價在 'Close' 列
 
-# 使用示例
-your_instance = YourClass()
-your_instance.api_test("7c497df8-4c9a-4524-aa09-a2ed717b18ea", "66963B0944C4A540F796BE86C9EB6A4C", "!Aa5566288")
+class Calculator:
+    def calculate_ema(self, data, window):
+        return pd.Series(data).ewm(span=window, adjust=False).mean()
+
+    def calculate_rolling_returns(self, data, window):
+        """
+        計算滾動回報率
+        """
+        return pd.Series(data).pct_change(window)
+
+calculator = Calculator()
+
+# 設定窗口值
+ema_window = 10
+rolling_returns_window = 5
+
+# 計算EMA和滾動回報率
+ema = calculator.calculate_ema(data, ema_window)
+rolling_returns = calculator.calculate_rolling_returns(data, rolling_returns_window)
+
+# 打印結果
+print("EMA:\n", ema)
+print("\nRolling Returns:\n", rolling_returns)
