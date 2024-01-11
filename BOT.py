@@ -156,7 +156,7 @@ class APIModal(Modal):
 @bot.tree.command(name='trade', description="Trade command")
 async def trade_command(interaction: discord.Interaction):
     view = ChoiceView(user_id=str(interaction.user.id))
-    await interaction.response.send_message("請選擇一個選項:", view=view, ephemeral=True)
+    await interaction.response.send_message("請選擇一個幣種:", view=view, ephemeral=True)
     await view.wait()
 
 
