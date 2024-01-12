@@ -118,9 +118,15 @@ class TradingBot:
         symbol_2_signal = symbol_2_rolling_returns.iloc[-2]
         symbol_2_btc_signal = symbol_2_btc_rolling_returns.iloc[-2]
 
+        market_info = self.exchange.load_markets()
+        symbol_info = market_info['BTC/USDT']
+        symbol_2_info = market_info[f'{symbol_2}/USDT']
+        amount_value = int(symbol_info['precision']['amount'])
+        amount_value_2 = int(symbol_2_info['precision']['amount'])
+
         balance = self.exchange.fetch_balance()
-        btc_balance = round(balance['free'].get('BTC', 0), 9)
-        symbol_2_balance = round(balance['free'].get(f'{symbol_2}', 0), 5)
+        btc_balance = round(balance['free'].get('BTC', 0), amount_value)
+        symbol_2_balance = round(balance['free'].get(f'{symbol_2}', 0), amount_value_2)
         usdt_balance = round(balance['free'].get('USDT', 0), 2)
 
         btc_ema100 = self.calculate_ema(btc_data, 100)
@@ -229,9 +235,9 @@ class TradingBot:
             time.sleep(1)
         
 # 使用示例
-api_key = 'api_key'
-secret = 'secret'
-password = '!password'
+api_key = '0de1ec2d-9261-4915-9104-519294dd9c7e'
+secret = 'F58CBB3F57E902C0FF702C33F05008C0'
+password = '!Aa5566288'
 symbol_2 = 'AVAX'
 bot = TradingBot(symbol_2, api_key, secret, password)
 bot.run()

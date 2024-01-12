@@ -1,53 +1,45 @@
 import ccxt.async_support as ccxt
 import asyncio
-import csv
-from datetime import datetime
-import schedule
-import time
+import pandas as pd
+from datetime import datetime, timedelta
 
-async def fetch_data(symbol):
-    exchange = ccxt.binance()  # 创建交易所实例
-    candles = await exchange.fetch_ohlcv(symbol, '1m', limit=300)  # 获取 300 条 K 线数据
-    await exchange.close()
-    return symbol, candles
+async def fetch_data(exchange, symbol):
+    try:
+        data = await exchange.fetch_ohlcv(symbol, '1d', limit=300)
+        return pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    finally:
+        await exchange.close()
 
-async def main():
-    symbols = ['BTC/USDT', 'ETH/USDT', 'MATIC/USDT', 'SOL/USDT']
-    tasks = [fetch_data(symbol) for symbol in symbols]
-    results = await asyncio.gather(*tasks)
+async def get_crypto_data():
+    # 定義幣種列表
+    symbols = ['BTC/USDT', 'ETH/USDT', 'MATIC/USDT', 'SOL/USDT', 'ETH/BTC', 'MATIC/BTC', 'SOL/BTC']
 
-    # 将数据保存到 CSV
-    for symbol, data in results:
-        filename = f'{symbol.replace("/", "_")}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-        with open(filename, 'w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-            for candle in data:
-                writer.writerow(candle)
+    # 使用異步獲取數據
+    tasks = [fetch_data(ccxt.binance(), symbol) for symbol in symbols]
+    data = await asyncio.gather(*tasks)
 
-def job():
-    asyncio.run(main())
-import ccxt
-from datetime import datetime
+    # 數據處理邏輯（例如保存到 CSV 文件）
+    for i, symbol in enumerate(symbols):
+        df = data[i]
+        df.to_csv(f'./dailydata/{symbol.replace("/", "_")}.csv', index=False)
 
-# 创建币安交易所对象
-exchange = ccxt.binance()
+async def fetch_server_time():
+    exchange = ccxt.binance()
+    try:
+        server_timestamp = await exchange.fetch_time()
+    finally:
+        await exchange.close()
+    return datetime.utcfromtimestamp(server_timestamp / 1000)
 
-# 获取币安交易所的服务器时间
-server_time_ms = exchange.fetch_time()
+async def schedule_task():
+    while True:
+        server_time = await fetch_server_time()
+        # 計算到下一個 00:00:01 的時間差
+        next_run = (server_time + timedelta(days=1)).replace(hour=0, minute=0, second=1, microsecond=0)
+        wait_seconds = (next_run - server_time).total_seconds()
+        print(f"下次執行時間：{next_run} UTC，等待時間：{wait_seconds}秒")
+        await asyncio.sleep(6)
+        await get_crypto_data()
 
-# 将毫秒时间戳转换为秒
-server_time_sec = server_time_ms / 1000
-
-# 将时间戳转换为可读的时间格式
-formatted_time = datetime.utcfromtimestamp(server_time_sec).strftime('%Y-%m-%d %H:%M:%S')
-
-# 打印可读的时间格式
-print("Binance服务器时间:", formatted_time)
-
-# 计划每天凌晨 00:00:01 执行任务
-schedule.every().day.at(f"{formatted_time}").do(job)
-
-while True:
-    schedule.run_pending()
-    time.sleep(1)
+# 啟動調度任務
+asyncio.run(schedule_task())
