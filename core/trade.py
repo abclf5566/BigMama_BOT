@@ -2,10 +2,20 @@
 import ccxt
 import pandas as pd
 import time
+import decimal
 from datetime import datetime
 
+
+def count_decimal_places(value):
+    # 將數值轉換為 Decimal 以避免浮點數的不精確性
+    value_decimal = decimal.Decimal(str(value))
+    # 取得小數部分
+    decimal_part = value_decimal.as_tuple().exponent
+    # 計算小數位數，如果沒有小數則為0
+    return abs(decimal_part) if decimal_part < 0 else 0
+
 class TradingBot:
-    def __init__(self, symbol_2, api_key, secret, password, KlineNum = 10, KlineNum2 = 8, az = 0.08, signal_threshold = 0.09):
+    def __init__(self, symbol_2, api_key, secret, password, KlineNum = 10, KlineNum2 = 8, az = 0.08, signal_threshold = 0.09, ema=100, ema_2=100):
         self.exchange = ccxt.okx({
             'apiKey': api_key,
             'secret': secret,
@@ -16,6 +26,8 @@ class TradingBot:
         self.KlineNum2 = KlineNum2
         self.az = az
         self.signal_threshold = signal_threshold
+        self.ema = ema
+        self.ema_2 = ema_2
 
     def calculate_ema(self, data, window):
         return pd.Series([x[4] for x in data]).ewm(span=window, adjust=False).mean()
@@ -54,7 +66,7 @@ class TradingBot:
             market_price = self.exchange.fetch_ticker(f'{symbol}')['last']
 
             # 計算最大可購買的目標交易數量
-            amount = amount / market_price
+            #amount = amount / market_price
 
             if symbol in ['BTC/USDT', f'{symbol_2}/USDT'] and target_position == 'USDT':
                 # 執行賣出操作
@@ -102,7 +114,7 @@ class TradingBot:
         except Exception as e:
             print(f"下單失敗，出現其他錯誤: {e}. 交易嘗試: {symbol} 數量 {amount}")
 
-    def evaluate_positions_and_trade(self,symbol_2):
+    def evaluate_positions_and_trade(self):
         """
         評估持倉並執行交易邏輯
         """
@@ -121,16 +133,19 @@ class TradingBot:
         market_info = self.exchange.load_markets()
         symbol_info = market_info['BTC/USDT']
         symbol_2_info = market_info[f'{symbol_2}/USDT']
-        amount_value = int(symbol_info['precision']['amount'])
-        amount_value_2 = int(symbol_2_info['precision']['amount'])
+        amount_value = count_decimal_places(symbol_info['precision']['amount'])
+        amount_value_2 = count_decimal_places(symbol_2_info['precision']['amount'])
 
+        print(amount_value ,amount_value_2)
         balance = self.exchange.fetch_balance()
         btc_balance = round(balance['free'].get('BTC', 0), amount_value)
         symbol_2_balance = round(balance['free'].get(f'{symbol_2}', 0), amount_value_2)
+        print(btc_balance ,amount_value)
         usdt_balance = round(balance['free'].get('USDT', 0), 2)
+        print(usdt_balance ,amount_value)
 
-        btc_ema100 = self.calculate_ema(btc_data, 100)
-        symbol_2_ema100 = self.calculate_ema(symbol_2_data, 100)
+        btc_ema = self.calculate_ema(btc_data, self.ema)
+        symbol_2_ema = self.calculate_ema(symbol_2_data, self.ema_2)
 
         btc_price = btc_data[-1][4]  # 最新的BTC收盤價
         symbol_2_price = symbol_2_data[-1][4]  # 最新的AVAX收盤價
@@ -146,7 +161,7 @@ class TradingBot:
         
                 
         # 檢查價格是否跌破EMA100
-        if btc_price < btc_ema100.iloc[-1] or symbol_2_price < symbol_2_ema100.iloc[-1]:
+        if btc_price < btc_ema.iloc[-1] or symbol_2_price < symbol_2_ema.iloc[-1]:
             print("價格跌破EMA100，轉換至USDT")
             self.execute_trade_with_fallback('BTC/USDT', btc_balance, 'USDT')
             self.execute_trade_with_fallback(f'{symbol_2}/USDT', symbol_2_balance, 'USDT')
@@ -173,7 +188,6 @@ class TradingBot:
             else:
                 print("信號在中性區信號保持當前持倉")
                 target_position = current_position
-                
 
         elif btc_signal < 0 and symbol_2_signal < 0:
             print(f"{symbol_2}/BTC訊號為負轉換至USDT")
@@ -210,8 +224,8 @@ class TradingBot:
 
 
         print(f"BTC滾動回報率: {btc_signal*100:.3f}%, {symbol_2}滾動回報率: {symbol_2_signal*100:.3f}%, {symbol_2}/BTC滾動回報率: {symbol_2_btc_signal*100:.3f}%")
-        print(f"當前BTC價格{btc_price} BTC100EMA {btc_ema100.iloc[-1]}")
-        print(f"當前{symbol_2}價格{symbol_2_price} {symbol_2} 100EMA {symbol_2_ema100.iloc[-1]}")    
+        print(f"當前BTC價格{btc_price} BTC100EMA {btc_ema.iloc[-1]}")
+        print(f"當前{symbol_2}價格{symbol_2_price} {symbol_2} 100EMA {symbol_2_ema.iloc[-1]}")    
         print(f"當前持倉: {current_position}, 目標持倉: {target_position}")
 
     def run(self):
@@ -222,13 +236,13 @@ class TradingBot:
 
             # 在第一次運行時立即執行交易邏輯
             if first_run:
-                self.evaluate_positions_and_trade(symbol_2)
+                self.evaluate_positions_and_trade()
                 print(f"首次執行交易邏輯於 {current_time}")
                 first_run = False  # 更新標誌以避免重複運行
 
             # 每小時執行一次交易邏輯
             if current_time.minute == 1 and current_time.second == 0:
-                self.evaluate_positions_and_trade(symbol_2)
+                self.evaluate_positions_and_trade()
                 print(f"已於{current_time}執行交易邏輯")
                 time.sleep(60)
 
@@ -238,6 +252,12 @@ class TradingBot:
 api_key = '0de1ec2d-9261-4915-9104-519294dd9c7e'
 secret = 'F58CBB3F57E902C0FF702C33F05008C0'
 password = '!Aa5566288'
-symbol_2 = 'AVAX'
-bot = TradingBot(symbol_2, api_key, secret, password)
+symbol_2 = 'MATIC'
+KlineNum = 20
+KlineNum2 = 37
+az = 0.1
+signal_threshold = 0.03
+ema = 79
+ema_2 = 169
+bot = TradingBot(symbol_2, api_key, secret, password, ema=ema, ema_2=ema_2, KlineNum=KlineNum, KlineNum2=KlineNum2, az=az, signal_threshold=signal_threshold)
 bot.run()
