@@ -3,6 +3,7 @@ import ccxt
 import pandas as pd
 import time
 import decimal
+import math
 from datetime import datetime
 
 
@@ -13,6 +14,13 @@ def count_decimal_places(value):
     decimal_part = value_decimal.as_tuple().exponent
     # 計算小數位數，如果沒有小數則為0
     return abs(decimal_part) if decimal_part < 0 else 0
+
+def truncate(number, digits) -> float:
+    """
+    無條件捨去
+    """
+    stepper = 10.0 ** digits
+    return math.floor(stepper * number) / stepper
 
 class TradingBot:
     def __init__(self, symbol_2, api_key, secret, password, KlineNum = 10, KlineNum2 = 8, az = 0.08, signal_threshold = 0.09, ema=100, ema_2=100):
@@ -136,13 +144,16 @@ class TradingBot:
         amount_value = count_decimal_places(symbol_info['precision']['amount'])
         amount_value_2 = count_decimal_places(symbol_2_info['precision']['amount'])
 
-        print(amount_value ,amount_value_2)
         balance = self.exchange.fetch_balance()
-        btc_balance = round(balance['free'].get('BTC', 0), amount_value)
-        symbol_2_balance = round(balance['free'].get(f'{symbol_2}', 0), amount_value_2)
-        print(btc_balance ,amount_value)
-        usdt_balance = round(balance['free'].get('USDT', 0), 2)
-        print(usdt_balance ,amount_value)
+
+        balance_amount = balance['free'].get('BTC', 0)
+        btc_balance = truncate(balance_amount, amount_value)
+
+        balance_amount_2 = balance['free'].get(f'{symbol_2}', 0)
+        symbol_2_balance = truncate(balance_amount_2, amount_value_2)
+
+        balance_amount_usdt = balance['free'].get('USDT', 0)
+        usdt_balance = truncate(balance_amount_usdt, 2)
 
         btc_ema = self.calculate_ema(btc_data, self.ema)
         symbol_2_ema = self.calculate_ema(symbol_2_data, self.ema_2)
@@ -257,12 +268,12 @@ class TradingBot:
 api_key = '0de1ec2d-9261-4915-9104-519294dd9c7e'
 secret = 'F58CBB3F57E902C0FF702C33F05008C0'
 password = '!Aa5566288'
-symbol_2 = 'MATIC'
-KlineNum = 20
-KlineNum2 = 37
-az = 0.1
-signal_threshold = 0.03
-ema = 79
-ema_2 = 169
+symbol_2 = 'SOL'
+KlineNum = 9
+KlineNum2 = 16
+az = 0.06
+signal_threshold = 0.08
+ema = 39
+ema_2 = 179
 bot = TradingBot(symbol_2, api_key, secret, password, ema=ema, ema_2=ema_2, KlineNum=KlineNum, KlineNum2=KlineNum2, az=az, signal_threshold=signal_threshold)
 bot.run()

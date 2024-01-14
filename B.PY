@@ -50,12 +50,13 @@ async def on_member_remove(member):
 # 注冊斜槓命令
 @bot.tree.command(name='test', description="TEST")
 async def test_command(interaction: discord.Interaction):
-    await interaction.response.send_message("測試命令被成功執行！")
+    await interaction.response.send_message("測試命令被成功執行！normal setup")
 
 @bot.tree.command(name='trade', description="Trade command")
 async def trade_command(interaction: discord.Interaction):
     view = Trade_setting.ChoiceView(user_id=str(interaction.user.id))
-    await interaction.response.send_message("請選擇一個幣種:", view=view, ephemeral=True)
+    print('Calling menu...')
+    await interaction.response.send_message("請選擇交易幣種:", view=view, ephemeral=True)
     await view.wait()
 
 @bot.command(name='load')

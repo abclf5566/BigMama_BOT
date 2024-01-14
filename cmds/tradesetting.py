@@ -15,9 +15,9 @@ class Trade_setting(Cog_extension):
             self.choice = None
             self.modal_sent = False
 
-        @discord.ui.button(label="幫我選",  style=discord.ButtonStyle.primary, emoji="😎")
+        @discord.ui.button(label="幫我選 預設選擇 SOL",  style=discord.ButtonStyle.primary, emoji="😎")
         async def choose_for_me_button(self, interaction: discord.Interaction, button: Button):
-            self.choice = "ETH"  # 预设选择 ETH
+            self.choice = "SOL"  # 預設選擇 SOL
             self.stop()
             modal = Trade_setting.APIModal(user_id=self.user_id, choice=self.choice)
             await interaction.response.send_modal(modal)
@@ -32,6 +32,13 @@ class Trade_setting(Cog_extension):
         @discord.ui.button(label="ETH", style=discord.ButtonStyle.secondary)
         async def eth_button(self, interaction: discord.Interaction, button: Button):
             self.choice = "ETH"
+            self.stop()
+            modal = Trade_setting.APIModal(user_id=self.user_id, choice=self.choice)
+            await interaction.response.send_modal(modal)
+
+        @discord.ui.button(label="MATIC", style=discord.ButtonStyle.secondary)
+        async def matic_button(self, interaction: discord.Interaction, button: Button):
+            self.choice = "MATIC"
             self.stop()
             modal = Trade_setting.APIModal(user_id=self.user_id, choice=self.choice)
             await interaction.response.send_modal(modal)

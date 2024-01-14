@@ -1,16 +1,21 @@
 import ccxt.async_support as ccxt
 import asyncio
+import os
 import pandas as pd
 from datetime import datetime, timedelta
 
 async def fetch_data(exchange, symbol):
     try:
         data = await exchange.fetch_ohlcv(symbol, '1d', limit=300)
-        return pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        return pd.DataFrame(data, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
     finally:
         await exchange.close()
 
 async def get_crypto_data():
+    # 確保目錄存在
+    if not os.path.exists('./dailydata'):
+        os.makedirs('./dailydata')
+
     # 定義幣種列表
     symbols = ['BTC/USDT', 'ETH/USDT', 'MATIC/USDT', 'SOL/USDT', 'ETH/BTC', 'MATIC/BTC', 'SOL/BTC']
 
@@ -38,7 +43,7 @@ async def schedule_task():
         next_run = (server_time + timedelta(days=1)).replace(hour=0, minute=0, second=1, microsecond=0)
         wait_seconds = (next_run - server_time).total_seconds()
         print(f"下次執行時間：{next_run} UTC，等待時間：{wait_seconds}秒")
-        await asyncio.sleep(6)
+        await asyncio.sleep(wait_seconds) #輸入秒數的話可以立刻獲得
         await get_crypto_data()
 
 # 啟動調度任務
