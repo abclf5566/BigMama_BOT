@@ -36,36 +36,51 @@ def read_csv(filename):
     except FileNotFoundError:
         print(f"{filename}.csv 文件不存在.")
         return None
+    
 def calculate_ema(data, window):
-    return pd.Series([x[4] for x in data]).ewm(span=window, adjust=False).mean()
-# def calculate_ema(data, window):
-#     # 假設 data DataFrame 有一個名為 'close' 的列代表收盤價
-#     return data['close'].ewm(span=window, adjust=False).mean()
+    return data['close'].ewm(span=window, adjust=False).mean()
 
-# def calculate_rolling_returns(data, window):
-#     """
-#     計算滾動回報率
-#     """
-#     return data['close'].pct_change(window)
 
 def calculate_rolling_returns(data, window):
     """
     計算滾動回報率
     """
-    return pd.Series([x[4] for x in data]).pct_change(window)
+    return data['close'].pct_change(window)
 
 exchange = ccxt.okx()
 
-btc_data = exchange.fetch_ohlcv('BTC/USDT')
-# print(calculate_ema(btc_data, 30))
-# rolling_returns = calculate_ema(btc_data, 30)
-# calculate_rolling_returns_1 = calculate_rolling_returns(rolling_returns,20)
-# btc_signal = calculate_rolling_returns_1.iloc[-2]
+btc_data = read_csv('SOL_BTC')
 
-btc_rolling_returns = calculate_rolling_returns(btc_data,20)
+print(btc_data)
+btc_rolling_returns = calculate_rolling_returns(btc_data,3)
 print(btc_rolling_returns)
-btc_signal = btc_rolling_returns.iloc[-2]
+btc_signal = btc_rolling_returns.iloc[-1]
 print(btc_signal)
+import ccxt
+
+# 初始化交易所
+exchange = ccxt.okx({
+    'apiKey': '0de1ec2d-9261-4915-9104-519294dd9c7e',
+    'secret': 'F58CBB3F57E902C0FF702C33F05008C0',
+    'password': '!Aa5566288'
+})
+
+# 加载市场信息
+markets = exchange.load_markets()
+symbol = 'BTC/USDT'
+
+# 获取账户余额
+balance = exchange.fetch_balance()
+usdt_balance = balance['total']['USDT']
+
+# 获取交易对信息
+market = exchange.market(symbol)
+
+# 确定可用于购买 BTC 的最大 USDT 金额
+# 这里考虑到交易所可能有最大订单金额的限制
+max_order_value = min(usdt_balance, market['limits']['amount']['max'] * market['info']['last'])
+
+print(f"您可以使用最多 {max_order_value} USDT 来购买 BTC。")
 
 # 讀取CSV文件並計算EMA
 #btc_data = read_csv("BTC_USDT")
