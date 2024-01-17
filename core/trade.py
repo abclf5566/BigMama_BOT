@@ -6,7 +6,14 @@ import decimal
 import math
 from datetime import datetime
 
-
+def read_csv(filename):
+    try:
+        # 使用pandas的read_csv函數來讀取CSV文件
+        df = pd.read_csv(f'dailydata/{filename}.csv')
+        return df
+    except FileNotFoundError:
+        print(f"{filename}.csv 文件不存在.")
+        return None
 
 def count_decimal_places(value):
     # 將數值轉換為 Decimal 以避免浮點數的不精確性
@@ -24,7 +31,7 @@ def truncate(number, digits) -> float:
     return math.floor(stepper * number) / stepper
 
 class TradingBot:
-    def __init__(self, symbol_2, api_key, secret, password, KlineNum = 10, KlineNum2 = 8, az = 0.08, signal_threshold = 0.09, ema=100, ema_2=100):
+    def __init__(self, symbol_2, api_key, secret, password, KlineNum, KlineNum2, az, signal_threshold, ema, ema_2, below_ema):
         self.exchange = ccxt.okx({
             'apiKey': api_key,
             'secret': secret,
@@ -37,19 +44,49 @@ class TradingBot:
         self.signal_threshold = signal_threshold
         self.ema = ema
         self.ema_2 = ema_2
+        self.below_ema = False
 
-    def read_csv(self, filename):
-        try:
-            # 使用pandas的read_csv函數來讀取CSV文件
-            df = pd.read_csv(f'dailydata/{filename}.csv')
-            return df
-        except FileNotFoundError:
-            print(f"{filename}.csv 文件不存在.")
-            return None
+    def evaluate_current_position(self):
+        # 獲取市場價格
+        btc_price = self.exchange.fetch_ticker('BTC/USDT')['last']
+        symbol_2_price = self.exchange.fetch_ticker(f'{self.symbol_2}/USDT')['last']
+
+        # 獲取賬戶余額
+        balance = self.exchange.fetch_balance()
+
+        # 安全地獲取各資產的余額（如果沒有則返回0）
+        btc_balance = balance['BTC'].get('free', 0)
+        symbol_2_balance = balance.get(self.symbol_2, {}).get('free', 0)
+        usdt_balance = balance['USDT'].get('free', 0)
+
+        # 計算各資產的價值（以USDT為單位）
+        btc_value = btc_balance * btc_price
+        symbol_2_value = symbol_2_balance * symbol_2_price
+        usdt_value = usdt_balance
+
+        # 比較各資產價值，選擇最大的作為當前持倉
+        if btc_value > symbol_2_value and btc_value > usdt_value:
+            return 'BTC'
+        elif symbol_2_value > btc_value and symbol_2_value > usdt_value:
+            return self.symbol_2
+        else:
+            return 'USDT'
         
+    def calculate_rolling_returns(self, data, window):
+        """
+        計算滾動回報率。
+        :param data: 包含價格數據的DataFrame。
+        :param window: 滾動窗口大小。
+        :return: 滾動回報率序列。
+        """
+        return data['close'].pct_change(window)
+
     def calculate_moving_average(self, data, window):
+        """
+        計算MA
+        """
         return data['close'].rolling(window=window).mean()
-    
+
     def fetch_ohlcv(self, symbol, timeframe='1d', since=None, max_retries=5, sleep_interval=5):
         retries = 0
         while retries < max_retries:
@@ -62,12 +99,6 @@ class TradingBot:
                 time.sleep(sleep_interval)
         raise Exception("獲取OHLCV數據失敗，達到最大重試次數。")
 
-    def calculate_rolling_returns(self, data, window):
-        """
-        計算滾動回報率
-        """
-        return data['close'].pct_change(window)
-    
     def execute_trade_with_fallback(self, symbol, amount, target_position):
         """
         嘗試執行交易，如果出現錯誤則記錄下單嘗試
@@ -76,32 +107,31 @@ class TradingBot:
         try:
             # 下市價買單，使用 `quoteOrderQty`
             params = {
-                'quoteOrderQty': amount*0.999,  # 指定想要花費的數量
+                'quoteOrderQty': amount*0.999  # 指定想要花費的數量
             }
 
-            #獲取交易對的當前市場價格
-            market_price = self.exchange.fetch_ticker(f'{symbol}')['last']
+            # 獲取交易對的當前市場價格
+            #market_price = self.exchange.fetch_ticker(f'{symbol}')['last']
 
-            if symbol in ['BTC/USDT', f'{symbol_2}/USDT'] and target_position == 'USDT':
+            # 計算最大可購買的目標交易數量
+            #amount = amount / market_price
+
+            if symbol in ['BTC/USDT', f'{self.symbol_2}/USDT'] and target_position == 'USDT':
                 # 執行賣出操作
                 print(f'使用 {symbol.split("/")[0]} 賣出換取USDT')
                 order_info = self.exchange.create_market_sell_order(symbol, amount)
 
-            elif symbol == f'{symbol_2}/BTC':
-                #計算最大可購買的目標交易數量
-                amount = amount / market_price
-
-                if target_position == f'{symbol_2}':
-
+            elif symbol == f'{self.symbol_2}/BTC':
+                if target_position == f'{self.symbol_2}':
                     # 從BTC轉換到AVAX，執行買入操作
-                    print(f'使用BTC購買{symbol_2}')
+                    print(f'使用BTC購買{self.symbol_2}')
                     order_info = self.exchange.create_market_buy_order(symbol, amount)
                     client_order_id = order_info['clientOrderId']
                     print("訂單 ID:", client_order_id)
                 
                 else:
                     # 從AVAX轉換到BTC，執行賣出操作
-                    print(f'使用{symbol_2}賣出換取BTC')
+                    print(f'使用{self.symbol_2}賣出換取BTC')
                     order_info = self.exchange.create_market_sell_order(symbol, amount)
                     client_order_id = order_info['clientOrderId']
                     print("訂單 ID:", client_order_id)
@@ -113,9 +143,9 @@ class TradingBot:
                 client_order_id = order_info['clientOrderId']
                 print("訂單 ID:", client_order_id)
 
-            elif symbol == f'{symbol_2}/USDT' and target_position == f'{symbol_2}':
+            elif symbol == f'{self.symbol_2}/USDT' and target_position == f'{self.symbol_2}':
                 # 使用USDT購買AVAX
-                print(f'使用 {amount} USDT購買{symbol_2}')
+                print(f'使用 {amount} USDT購買{self.symbol_2}')
                 order_info = self.exchange.create_market_buy_order(symbol, amount)
                 client_order_id = order_info['clientOrderId']
                 print("訂單 ID:", client_order_id)
@@ -132,13 +162,13 @@ class TradingBot:
         except Exception as e:
             print(f"下單失敗，出現其他錯誤: {e}. 交易嘗試: {symbol} 數量 {amount}")
 
-    def evaluate_positions_and_trade(self):
+    def evaluate_positions_and_trade(self, symbol_2):
         """
         評估持倉並執行交易邏輯
         """
-        btc_data = self.read_csv('BTC_USDT')
-        symbol_2_data = self.read_csv(f'{symbol_2}_USDT')
-        symbol_2_btc_data = self.read_csv(f'{symbol_2}_BTC')
+        btc_data = read_csv('BTC_USDT')
+        symbol_2_data = read_csv(f'{symbol_2}_USDT')
+        symbol_2_btc_data = read_csv(f'{symbol_2}_BTC')
 
         btc_rolling_returns = self.calculate_rolling_returns(btc_data, self.KlineNum)
         symbol_2_rolling_returns = self.calculate_rolling_returns(symbol_2_data, self.KlineNum)
@@ -171,67 +201,59 @@ class TradingBot:
         btc_price = btc_data['close'].iloc[-1]  # 最新的BTC收盤價
         symbol_2_price = symbol_2_data['close'].iloc[-1]  # 最新的AVAX收盤價
 
-        current_position = 'USDT'  # 假設初始持倉為USDT
-
-        if 'BTC' in balance['total']:
-            if balance['BTC']['free'] > 0.0001:  # 設定一個最小BTC餘額閾值
-                current_position = 'BTC'
-        elif f'{symbol_2}' in balance['total']:
-            if balance[f'{symbol_2}']['free'] > 0.01:  # 設定一個最小AVAX餘額閾值
-                current_position = f'{symbol_2}'
-        
+        current_position = self.evaluate_current_position()  # 假設初始持倉為USDT       
                 
         # 檢查價格是否跌破EMA100
-        if btc_price < btc_ema.iloc[-1] or symbol_2_price < symbol_2_ema.iloc[-1]:
-            print("價格跌破EMA100，轉換至USDT")
-            self.execute_trade_with_fallback('BTC/USDT', btc_balance, 'USDT')
-            self.execute_trade_with_fallback(f'{symbol_2}/USDT', symbol_2_balance, 'USDT')
-            target_position = 'USDT'
+        if btc_price < btc_ema.iloc[-2] or symbol_2_price < symbol_2_ema.iloc[-2]:
+            if not self.below_ema:
+                print("價格跌破EMA100，轉換至USDT")
+                self.execute_trade_with_fallback('BTC/USDT', btc_balance, 'USDT')
+                self.execute_trade_with_fallback(f'{symbol_2}/USDT', symbol_2_balance, 'USDT')
+                self.below_ema = True
+        else:
+            self.below_ema = False 
 
         # 決策邏輯
-        # 中性区间判断，如果在az中性区内且两币种相对于USDT都下跌，则优先处理转换为USDT
         if -self.az <= btc_signal <= self.az and -self.az <= symbol_2_signal <= self.az:
-            # if btc_signal < 0 and symbol_2_signal < 0:
-            #     print(f"信號在中性區且BTC/{symbol_2}信號小於0保持當前持倉")
-            #     target_position = current_position
+            if btc_signal < 0 and symbol_2_signal < 0:
+                print(f"信號在中性區且 BTC/{symbol_2} 信號小於0保持當前持倉")
+                target_position = current_position
 
-            if current_position == 'BTC' and symbol_2_btc_signal > 0:
+            elif current_position == 'BTC' and symbol_2_btc_signal > 0:
                 print(f"信號在中性區BTC轉換至{symbol_2}")
-                target_position = symbol_2
                 self.execute_trade_with_fallback(f'{symbol_2}/BTC', btc_balance, f'{symbol_2}')
                 self.execute_trade_with_fallback(f'{symbol_2}/USDT', usdt_balance, f'{symbol_2}')
+                target_position = f'{symbol_2}'
 
-
-            elif current_position == symbol_2 and symbol_2_btc_signal < 0:
+            elif current_position == f'{symbol_2}' and symbol_2_btc_signal < 0:
                 print(f"信號在中性區{symbol_2}轉換至BTC")
-                target_position = 'BTC'
                 self.execute_trade_with_fallback(f'{symbol_2}/BTC', symbol_2_balance, 'BTC')
                 self.execute_trade_with_fallback('BTC/USDT', usdt_balance, 'BTC')
+                target_position = 'BTC'
 
             else:
                 print("信號在中性區信號保持當前持倉")
                 target_position = current_position
 
-        # 如果BTC和ETH相对于USDT的信号都小于0，则转换为USDT
         elif btc_signal < 0 and symbol_2_signal < 0:
-            print(f"{symbol_2}/BTC訊號為負轉換至USDT")
-            target_position = 'USDT'
+            print(f"{symbol_2} 或 BTC 訊號為負轉換至USDT")
             self.execute_trade_with_fallback('BTC/USDT', btc_balance, 'USDT')
             self.execute_trade_with_fallback(f'{symbol_2}/USDT', symbol_2_balance, 'USDT')
+            target_position = 'USDT'
 
-        else:# 根据ETH/BTC信号进行持仓决策
+        else:
             if current_position == 'BTC' and symbol_2_btc_signal > 0:
                 print(f"轉換至{symbol_2}")
-                self.execute_trade_with_fallback(f'{symbol_2}/BTC', btc_balance, symbol_2)
-                self.execute_trade_with_fallback(f'{symbol_2}/USDT', usdt_balance, symbol_2)
-                target_position = symbol_2
+                self.execute_trade_with_fallback(f'{symbol_2}/BTC', btc_balance, f'{symbol_2}')
+                self.execute_trade_with_fallback(f'{symbol_2}/USDT', usdt_balance, f'{symbol_2}')
+                target_position = f'{symbol_2}'
 
-            elif current_position == symbol_2 and symbol_2_btc_signal < 0:
+            elif current_position == f'{symbol_2}' and symbol_2_btc_signal < 0:
                 print("轉換至BTC")
                 self.execute_trade_with_fallback(f'{symbol_2}/BTC', symbol_2_balance, 'BTC')
                 self.execute_trade_with_fallback('BTC/USDT', usdt_balance, 'BTC')            
                 target_position = 'BTC'
-            else:# 根据BTC和ETH相对于USDT的信号差异进行决策
+            else:
                 if abs(btc_signal - symbol_2_signal) > self.signal_threshold:
                     if btc_signal > symbol_2_signal:
                         print("signal_threshold轉換至BTC")
@@ -240,9 +262,9 @@ class TradingBot:
                         target_position = 'BTC'
                     else :
                         print(f"signal_threshold轉換至{symbol_2}")
-                        self.execute_trade_with_fallback(f'{symbol_2}/BTC', btc_balance, symbol_2)
-                        self.execute_trade_with_fallback(f'{symbol_2}/USDT', usdt_balance, symbol_2)                    
-                        target_position = symbol_2
+                        self.execute_trade_with_fallback(f'{symbol_2}/BTC', btc_balance, f'{symbol_2}')
+                        self.execute_trade_with_fallback(f'{symbol_2}/USDT', usdt_balance, f'{symbol_2}')                    
+                        target_position = f'{symbol_2}'
                 else:
                     target_position = current_position
 
@@ -252,41 +274,39 @@ class TradingBot:
         print(f"當前{symbol_2}價格{symbol_2_price} {symbol_2} 100EMA {symbol_2_ema.iloc[-1]}")    
         print(f"當前持倉: {current_position}, 目標持倉: {target_position}")
 
-    def run(self):
-        first_run = True  # 添加一個標誌來標示第一次運行
+    # def run(self):
+    #     first_run = True  # 添加一個標誌來標示第一次運行
 
-        while True:
-            current_time = datetime.now()
+    #     while True:
+    #         current_time = datetime.now()
 
-            # 在第一次運行時立即執行交易邏輯
-            if first_run:
-                self.evaluate_positions_and_trade()
-                print(f"首次執行交易邏輯於 {current_time}")
-                first_run = False  # 更新標誌以避免重複運行
+    #         # 在第一次運行時立即執行交易邏輯
+    #         if first_run:
+    #             self.evaluate_positions_and_trade()
+    #             print(f"首次執行交易邏輯於 {current_time}")
+    #             first_run = False  # 更新標誌以避免重複運行
 
-            # 每小時執行一次交易邏輯
-            if current_time.minute == 1 and current_time.second == 0:
-                self.evaluate_positions_and_trade()
-                print(f"已於{current_time}執行交易邏輯")
-                time.sleep(60)
+    #         # 每小時執行一次交易邏輯
+    #         if current_time.minute == 1 and current_time.second == 0:
+    #             self.evaluate_positions_and_trade()
+    #             print(f"已於{current_time}執行交易邏輯")
+    #             time.sleep(60)
 
-            time.sleep(1)
+    #         time.sleep(1)
 
-
-
-#79EMA 169EMA 最佳参数组合: (20, 37, 0.1, 0.03) 最大回撤: 56.04% 最大回撤發生的時間段: 從 2021-05-18 00:00:00 到 2021-05-23 00:00:00 年化收益: 444.42% 最終資產價值: 308451.71 USDT 勝率為50.47% 1d btc/matic/usdt
-#BTC 39EMA SOL 179EMA  最佳参数组合: (9, 16, 0.06, 0.08)  最大回撤: 37.75% 最大回撤發生的時間段: 從 2021-05-18 00:00:00 到 2021-06-01 00:00:00 年化收益: 575.71% 最終資產價值: 614620.49 USDT 勝率為49.26% 1d btc/SOL/usdt
+#79EMA 189EMA 最佳參數組合: (20, 37, 0.1, 0.03) 最大回撤: 56.04% 最大回撤發生的時間段: 從 2021-05-18 00:00:00 到 2021-05-23 00:00:00 年化收益: 444.42% 最終資產價值: 308451.71 USDT 勝率為50.47% 1d btc/matic/usdt
+#BTC 39EMA SOL 179EMA  最佳參數組合: (9, 16, 0.06, 0.08)  最大回撤: 37.75% 最大回撤發生的時間段: 從 2021-05-18 00:00:00 到 2021-06-01 00:00:00 年化收益: 575.71% 最終資產價值: 614620.49 USDT 勝率為49.26% 1d btc/SOL/usdt
             
 # 使用示例
-api_key = '0de1ec2d-9261-4915-9104-519294dd9c7e'
-secret = 'F58CBB3F57E902C0FF702C33F05008C0'
-password = '!Aa5566288'
-symbol_2 = 'SOL'
-KlineNum = 9
-KlineNum2 = 16
-az = 0.06
-signal_threshold = 0.08
-ema = 39
-ema_2 = 179
-bot = TradingBot(symbol_2, api_key, secret, password, ema=ema, ema_2=ema_2, KlineNum=KlineNum, KlineNum2=KlineNum2, az=az, signal_threshold=signal_threshold)
-bot.run()
+# api_key = '0de1ec2d-9261-4915-9104-519294dd9c7e'
+# secret = 'F58CBB3F57E902C0FF702C33F05008C0'
+# password = '!Aa5566288'
+# symbol_2 = 'SOL'
+# KlineNum = 9
+# KlineNum2 = 16
+# az = 0.06
+# signal_threshold = 0.08
+# ema = 39
+# ema_2 = 179
+# bot = TradingBot(symbol_2, api_key, secret, password, ema=ema, ema_2=ema_2, KlineNum=KlineNum, KlineNum2=KlineNum2, az=az, signal_threshold=signal_threshold)
+# bot.run()

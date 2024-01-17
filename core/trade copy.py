@@ -180,7 +180,7 @@ class TradingBot:
             target_position = 'USDT'
 
         # 決策邏輯
-        # 中性区间判断，如果在az中性区内且两币种相对于USDT都下跌，则优先处理转换为USDT
+        # 中性區間判斷，如果在az中性區內且兩幣種相對於USDT都下跌，則優先處理轉換為USDT
         if -self.az <= btc_signal <= self.az and -self.az <= symbol_2_signal <= self.az:
             # if btc_signal < 0 and symbol_2_signal < 0:
             #     print(f"信號在中性區且BTC/{symbol_2}信號小於0保持當前持倉")
@@ -203,14 +203,14 @@ class TradingBot:
                 print("信號在中性區信號保持當前持倉")
                 target_position = current_position
 
-        # 如果BTC和ETH相对于USDT的信号都小于0，则转换为USDT
+        # 如果BTC和ETH相對於USDT的信號都小於0，則轉換為USDT
         elif btc_signal < 0 and symbol_2_signal < 0:
             print(f"{symbol_2}/BTC訊號為負轉換至USDT")
             target_position = 'USDT'
             self.execute_trade_with_fallback('BTC/USDT', btc_balance, 'USDT')
             self.execute_trade_with_fallback(f'{symbol_2}/USDT', symbol_2_balance, 'USDT')
 
-        else:# 根据ETH/BTC信号进行持仓决策
+        else:# 根據ETH/BTC信號進行持倉決策
             if current_position == 'BTC' and symbol_2_btc_signal > 0:
                 print(f"轉換至{symbol_2}")
                 self.execute_trade_with_fallback(f'{symbol_2}/BTC', btc_balance, symbol_2)
@@ -222,7 +222,7 @@ class TradingBot:
                 self.execute_trade_with_fallback(f'{symbol_2}/BTC', symbol_2_balance, 'BTC')
                 self.execute_trade_with_fallback('BTC/USDT', usdt_balance, 'BTC')            
                 target_position = 'BTC'
-            else:# 根据BTC和ETH相对于USDT的信号差异进行决策
+            else:# 根據BTC和ETH相對於USDT的信號差異進行決策
                 if abs(btc_signal - symbol_2_signal) > self.signal_threshold:
                     if btc_signal > symbol_2_signal:
                         print("signal_threshold轉換至BTC")
@@ -265,8 +265,8 @@ class TradingBot:
 
 
 
-#79EMA 169EMA 最佳参数组合: (20, 37, 0.1, 0.03) 最大回撤: 56.04% 最大回撤發生的時間段: 從 2021-05-18 00:00:00 到 2021-05-23 00:00:00 年化收益: 444.42% 最終資產價值: 308451.71 USDT 勝率為50.47% 1d btc/matic/usdt
-#BTC 39EMA SOL 179EMA  最佳参数组合: (9, 16, 0.06, 0.08)  最大回撤: 37.75% 最大回撤發生的時間段: 從 2021-05-18 00:00:00 到 2021-06-01 00:00:00 年化收益: 575.71% 最終資產價值: 614620.49 USDT 勝率為49.26% 1d btc/SOL/usdt
+#79EMA 169EMA 最佳參數組合: (20, 37, 0.1, 0.03) 最大回撤: 56.04% 最大回撤發生的時間段: 從 2021-05-18 00:00:00 到 2021-05-23 00:00:00 年化收益: 444.42% 最終資產價值: 308451.71 USDT 勝率為50.47% 1d btc/matic/usdt
+#BTC 39EMA SOL 179EMA  最佳參數組合: (9, 16, 0.06, 0.08)  最大回撤: 37.75% 最大回撤發生的時間段: 從 2021-05-18 00:00:00 到 2021-06-01 00:00:00 年化收益: 575.71% 最終資產價值: 614620.49 USDT 勝率為49.26% 1d btc/SOL/usdt
             
 # 使用示例
 api_key = '0de1ec2d-9261-4915-9104-519294dd9c7e'

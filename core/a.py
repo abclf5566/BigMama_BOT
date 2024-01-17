@@ -4,7 +4,6 @@ import math
 import pandas as pd
 import csv
 import os
-import time
 
 # 設定目錄路徑
 directory_path = './dailydata/'
@@ -37,6 +36,10 @@ def read_csv(filename):
     except FileNotFoundError:
         print(f"{filename}.csv 文件不存在.")
         return None
+    
+def calculate_ema(data, window):
+    return data['close'].ewm(span=window, adjust=False).mean()
+
 
 def calculate_rolling_returns(data, window):
     """
@@ -44,44 +47,76 @@ def calculate_rolling_returns(data, window):
     """
     return data['close'].pct_change(window)
 
-def calculate_moving_average(data, window):
-    return data['close'].rolling(window=window).mean()
-
-exchange = ccxt.okx()
-
-btc_data = read_csv('BTC_USDT')
-
-#print(btc_data)
-btc_rolling_returns = calculate_rolling_returns(btc_data,9)
-print(btc_rolling_returns)
-btc_signal = btc_rolling_returns.iloc[-2]
-print(btc_signal)
-btcma = calculate_moving_average(btc_data,39)
-print(btcma)
-
-import ccxt
-
-# 初始化交易所
 exchange = ccxt.okx({
     'apiKey': '0de1ec2d-9261-4915-9104-519294dd9c7e',
     'secret': 'F58CBB3F57E902C0FF702C33F05008C0',
     'password': '!Aa5566288'
 })
 
-# 加载市场信息
-markets = exchange.load_markets()
-symbol = 'SOL/BTC'
+btc_data = read_csv('SOL_BTC')
 
-# 获取账户余额
-balance = exchange.fetch_balance()
-usdt_balance = balance['total']['BTC']
+print(btc_data)
+btc_rolling_returns = calculate_rolling_returns(btc_data,3)
+print(btc_rolling_returns)
+btc_signal = btc_rolling_returns.iloc[-1]
+print(btc_signal)
 
-# 获取交易对信息
-market = exchange.market(symbol)
-#print(market)
-btc_100_ma = calculate_moving_average(btc_data, 39)  # BTC的100日移动平均线
-#eth_100_ma = calculate_moving_average(eth_data, 179)  # ETH的100日移动平均线
-print(btc_100_ma)
+def evaluate_current_position():
+    # 獲取市場價格
+    btc_price = exchange.fetch_ticker('BTC/USDT')['last']
+    symbol_2_price = exchange.fetch_ticker('SOL/USDT')['last']
+
+    # 獲取賬戶余額
+    balance = exchange.fetch_balance()
+    print(balance)
+
+    # 計算各資產的價值（以USDT為單位）
+    btc_balance = balance['BTC'].get('free', 0)
+    symbol_2_balance = balance.get('SOL', {}).get('free', 0)
+    usdt_balance = balance['USDT'].get('free', 0)
+    usdt_value = balance['USDT']['free']
+
+    btc_value = btc_balance * btc_price
+    symbol_2_value = symbol_2_balance * symbol_2_price
+    usdt_value = usdt_balance
+    
+    # 比較各資產價值，選擇最大的作為當前持倉
+    if btc_value > symbol_2_value and btc_value > usdt_value:
+        return 'BTC'
+    elif symbol_2_value > btc_value and symbol_2_value > usdt_value:
+        return 'SOL'
+    else:
+        return 'USDT'
+
+eav = evaluate_current_position()
+print(eav)
+
+def evaluate_current_position(self):
+    # 获取市场价格
+    btc_price = self.exchange.fetch_ticker('BTC/USDT')['last']
+    symbol_2_price = self.exchange.fetch_ticker(f'{self.symbol_2}/USDT')['last']
+
+    # 获取账户余额
+    balance = self.exchange.fetch_balance()
+
+    # 安全地获取各资产的余额（如果没有则返回0）
+    btc_balance = balance['BTC'].get('free', 0)
+    symbol_2_balance = balance.get(self.symbol_2, {}).get('free', 0)
+    usdt_balance = balance['USDT'].get('free', 0)
+
+    # 计算各资产的价值（以USDT为单位）
+    btc_value = btc_balance * btc_price
+    symbol_2_value = symbol_2_balance * symbol_2_price
+    usdt_value = usdt_balance
+
+    # 比较各资产价值，选择最大的作为当前持仓
+    if btc_value > symbol_2_value and btc_value > usdt_value:
+        return 'BTC'
+    elif symbol_2_value > btc_value and symbol_2_value > usdt_value:
+        return self.symbol_2
+    else:
+        return 'USDT'
+
 # 讀取CSV文件並計算EMA
 #btc_data = read_csv("BTC_USDT")
 # if btc_data is not None:
@@ -90,20 +125,17 @@ print(btc_100_ma)
 #     print(f'EMA is {ema} ')
 #     print(calculate_rolling_returns(ema,5))
 
-
-def fetch_ohlcv(symbol, timeframe='1d', since=300, max_retries=5, sleep_interval=5):
-    retries = 0
-    while retries < max_retries:
-        try:
-            ohlcv = exchange.fetch_ohlcv(symbol, timeframe, since)
-            return ohlcv
-        except (ccxt.NetworkError, ccxt.ExchangeError) as e:
-            print(f"獲取數據時發生錯誤：{e}. 正在重試...")
-            retries += 1
-            time.sleep(sleep_interval)
-    raise Exception("獲取OHLCV數據失敗，達到最大重試次數。")
-
-#print(fetch_ohlcv('BTC/USDT'))
+# def fetch_ohlcv(self, symbol, timeframe='1d', since=None, max_retries=5, sleep_interval=5):
+#     retries = 0
+#     while retries < max_retries:
+#         try:
+#             ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, since)
+#             return ohlcv
+#         except (ccxt.NetworkError, ccxt.ExchangeError) as e:
+#             print(f"獲取數據時發生錯誤：{e}. 正在重試...")
+#             retries += 1
+#             time.sleep(sleep_interval)
+#     raise Exception("獲取OHLCV數據失敗，達到最大重試次數。")
 
 # btc_data = file_names
 # symbol_2_data = fetch_ohlcv(f'{symbol_2}/USDT')

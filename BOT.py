@@ -61,11 +61,11 @@ class ChoiceView(View):
         super().__init__(timeout=30)
         self.user_id = user_id
         self.choice = None
-        self.modal_sent = False  # 添加一个标记来跟踪是否已发送模态对话框
+        self.modal_sent = False  # 添加一個標記來跟蹤是否已發送模態對話框
 
     @discord.ui.button(label="幫我選",  style=discord.ButtonStyle.primary, emoji="😎")
     async def choose_for_me_button(self, interaction: discord.Interaction, button: Button):
-        self.choice = "ETH"  # 预设选择 ETH
+        self.choice = "ETH"  # 預設選擇 ETH
         self.stop()
         modal = APIModal(user_id=self.user_id, choice=self.choice)
         await interaction.response.send_modal(modal)
@@ -88,7 +88,7 @@ class ChoiceView(View):
         return str(interaction.user.id) == self.user_id
 
     async def on_timeout(self):
-        self.choice = None  # 如果超时，则设置选择为 None
+        self.choice = None  # 如果超時，則設置選擇為 None
 
 
 class APIModal(Modal):
@@ -147,11 +147,11 @@ class APIModal(Modal):
             if await self.api_test(self.api_key.value, self.secret.value, self.password.value):
                 await interaction.response.send_message("您的信息和 API Key 已成功保存", ephemeral=True)
             else:
-                raise Exception("保存信息/API 調用時出錯")
+                raise Exception("API 調用時出錯")
         except Exception as e:
             print(f"用戶: {self.user_id}保存信息時出錯 {e}")
             error_message = str(e)
-            await interaction.response.send_message(f"保存信息時發生錯誤：{error_message}請檢查OKX API", ephemeral=True)
+            await interaction.response.send_message(f"保存信息時發生錯誤：{error_message} 請檢查OKX API", ephemeral=True)
 
 @bot.tree.command(name='trade', description="Trade command")
 async def trade_command(interaction: discord.Interaction):
