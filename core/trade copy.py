@@ -7,7 +7,6 @@ import math
 from datetime import datetime
 
 
-
 def count_decimal_places(value):
     # 將數值轉換為 Decimal 以避免浮點數的不精確性
     value_decimal = decimal.Decimal(str(value))
@@ -38,18 +37,9 @@ class TradingBot:
         self.ema = ema
         self.ema_2 = ema_2
 
-    def read_csv(self, filename):
-        try:
-            # 使用pandas的read_csv函數來讀取CSV文件
-            df = pd.read_csv(f'dailydata/{filename}.csv')
-            return df
-        except FileNotFoundError:
-            print(f"{filename}.csv 文件不存在.")
-            return None
-        
-    def calculate_moving_average(self, data, window):
-        return data['close'].rolling(window=window).mean()
-    
+    def calculate_ema(self, data, window):
+        return pd.Series([x[4] for x in data]).ewm(span=window, adjust=False).mean()
+
     def fetch_ohlcv(self, symbol, timeframe='1d', since=None, max_retries=5, sleep_interval=5):
         retries = 0
         while retries < max_retries:
@@ -66,8 +56,9 @@ class TradingBot:
         """
         計算滾動回報率
         """
-        return data['close'].pct_change(window)
-    
+        return pd.Series([x[4] for x in data]).pct_change(window)
+
+
     def execute_trade_with_fallback(self, symbol, amount, target_position):
         """
         嘗試執行交易，如果出現錯誤則記錄下單嘗試
@@ -136,9 +127,9 @@ class TradingBot:
         """
         評估持倉並執行交易邏輯
         """
-        btc_data = self.read_csv('BTC_USDT')
-        symbol_2_data = self.read_csv(f'{symbol_2}_USDT')
-        symbol_2_btc_data = self.read_csv(f'{symbol_2}_BTC')
+        btc_data = self.fetch_ohlcv('BTC/USDT')
+        symbol_2_data = self.fetch_ohlcv(f'{symbol_2}/USDT')
+        symbol_2_btc_data = self.fetch_ohlcv(f'{symbol_2}/BTC')
 
         btc_rolling_returns = self.calculate_rolling_returns(btc_data, self.KlineNum)
         symbol_2_rolling_returns = self.calculate_rolling_returns(symbol_2_data, self.KlineNum)
@@ -165,11 +156,11 @@ class TradingBot:
         balance_amount_usdt = balance['free'].get('USDT', 0)
         usdt_balance = truncate(balance_amount_usdt, 2)
 
-        btc_ema = self.calculate_moving_average(btc_data, self.ema)
-        symbol_2_ema = self.calculate_moving_average(symbol_2_data, self.ema_2)
+        btc_ema = self.calculate_ema(btc_data, self.ema)
+        symbol_2_ema = self.calculate_ema(symbol_2_data, self.ema_2)
 
-        btc_price = btc_data['close'].iloc[-1]  # 最新的BTC收盤價
-        symbol_2_price = symbol_2_data['close'].iloc[-1]  # 最新的AVAX收盤價
+        btc_price = btc_data[-1][4]  # 最新的BTC收盤價
+        symbol_2_price = symbol_2_data[-1][4]  # 最新的AVAX收盤價
 
         current_position = 'USDT'  # 假設初始持倉為USDT
 

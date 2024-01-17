@@ -21,7 +21,7 @@ async def get_crypto_data():
     # 數據處理邏輯（例如保存到 CSV 文件）
     for i, symbol in enumerate(symbols):
         df = data[i]
-        df.to_csv(f'./dailydata/{symbol.replace("/", "_")}.csv', index=False)
+        df.to_csv(f'./dailydata/{symbol.replace("/", "_")}.csv', index=False) #symbol.replace("/", "_")
 
 async def fetch_server_time():
     exchange = ccxt.binance()
@@ -38,7 +38,7 @@ async def schedule_task():
         next_run = (server_time + timedelta(days=1)).replace(hour=0, minute=0, second=1, microsecond=0)
         wait_seconds = (next_run - server_time).total_seconds()
         print(f"下次執行時間：{next_run} UTC，等待時間：{wait_seconds}秒")
-        await asyncio.sleep(wait_seconds+1)
+        await asyncio.sleep(6)
         await get_crypto_data()
 
 # 啟動調度任務

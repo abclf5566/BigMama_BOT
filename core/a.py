@@ -4,6 +4,7 @@ import math
 import pandas as pd
 import csv
 import os
+import time
 
 # 設定目錄路徑
 directory_path = './dailydata/'
@@ -36,10 +37,6 @@ def read_csv(filename):
     except FileNotFoundError:
         print(f"{filename}.csv 文件不存在.")
         return None
-    
-def calculate_ema(data, window):
-    return data['close'].ewm(span=window, adjust=False).mean()
-
 
 def calculate_rolling_returns(data, window):
     """
@@ -47,15 +44,21 @@ def calculate_rolling_returns(data, window):
     """
     return data['close'].pct_change(window)
 
+def calculate_moving_average(data, window):
+    return data['close'].rolling(window=window).mean()
+
 exchange = ccxt.okx()
 
-btc_data = read_csv('SOL_BTC')
+btc_data = read_csv('BTC_USDT')
 
-print(btc_data)
-btc_rolling_returns = calculate_rolling_returns(btc_data,3)
+#print(btc_data)
+btc_rolling_returns = calculate_rolling_returns(btc_data,9)
 print(btc_rolling_returns)
-btc_signal = btc_rolling_returns.iloc[-1]
+btc_signal = btc_rolling_returns.iloc[-2]
 print(btc_signal)
+btcma = calculate_moving_average(btc_data,39)
+print(btcma)
+
 import ccxt
 
 # 初始化交易所
@@ -67,21 +70,18 @@ exchange = ccxt.okx({
 
 # 加载市场信息
 markets = exchange.load_markets()
-symbol = 'BTC/USDT'
+symbol = 'SOL/BTC'
 
 # 获取账户余额
 balance = exchange.fetch_balance()
-usdt_balance = balance['total']['USDT']
+usdt_balance = balance['total']['BTC']
 
 # 获取交易对信息
 market = exchange.market(symbol)
-
-# 确定可用于购买 BTC 的最大 USDT 金额
-# 这里考虑到交易所可能有最大订单金额的限制
-max_order_value = min(usdt_balance, market['limits']['amount']['max'] * market['info']['last'])
-
-print(f"您可以使用最多 {max_order_value} USDT 来购买 BTC。")
-
+#print(market)
+btc_100_ma = calculate_moving_average(btc_data, 39)  # BTC的100日移动平均线
+#eth_100_ma = calculate_moving_average(eth_data, 179)  # ETH的100日移动平均线
+print(btc_100_ma)
 # 讀取CSV文件並計算EMA
 #btc_data = read_csv("BTC_USDT")
 # if btc_data is not None:
@@ -91,17 +91,19 @@ print(f"您可以使用最多 {max_order_value} USDT 来购买 BTC。")
 #     print(calculate_rolling_returns(ema,5))
 
 
-# def fetch_ohlcv(self, symbol, timeframe='1d', since=None, max_retries=5, sleep_interval=5):
-#     retries = 0
-#     while retries < max_retries:
-#         try:
-#             ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, since)
-#             return ohlcv
-#         except (ccxt.NetworkError, ccxt.ExchangeError) as e:
-#             print(f"獲取數據時發生錯誤：{e}. 正在重試...")
-#             retries += 1
-#             time.sleep(sleep_interval)
-#     raise Exception("獲取OHLCV數據失敗，達到最大重試次數。")
+def fetch_ohlcv(symbol, timeframe='1d', since=300, max_retries=5, sleep_interval=5):
+    retries = 0
+    while retries < max_retries:
+        try:
+            ohlcv = exchange.fetch_ohlcv(symbol, timeframe, since)
+            return ohlcv
+        except (ccxt.NetworkError, ccxt.ExchangeError) as e:
+            print(f"獲取數據時發生錯誤：{e}. 正在重試...")
+            retries += 1
+            time.sleep(sleep_interval)
+    raise Exception("獲取OHLCV數據失敗，達到最大重試次數。")
+
+#print(fetch_ohlcv('BTC/USDT'))
 
 # btc_data = file_names
 # symbol_2_data = fetch_ohlcv(f'{symbol_2}/USDT')
