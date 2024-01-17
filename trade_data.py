@@ -54,15 +54,15 @@ async def schedule_task():
                     username = data.get("username")
                     symbol_2 = data.get("symbol_2")
                     if symbol_2 == 'SOL':
-                        KlineNum = 20
-                        KlineNum2 = 37
-                        az = 0.1
-                        signal_threshold = 0.03
+                        KlineNum = 9
+                        KlineNum2 = 16
+                        az = 0.06
+                        signal_threshold = 0.08
                         ema = 39
                         ema_2 = 179
                     elif symbol_2 == 'MATIC':
-                        KlineNum = 79
-                        KlineNum2 = 189
+                        KlineNum = 20
+                        KlineNum2 = 37
                         az = 0.06
                         signal_threshold = 0.08
                         ema = 79
@@ -76,7 +76,7 @@ async def schedule_task():
                         print(f"File: {filename}, Username: {username}, symbol_2: {symbol_2}")
 
                         # 使用從文件中提取的信息創建 TradingBot 實例並運行
-                        bot = TradingBot(symbol_2, api_key, secret, password, ema=ema, ema_2=ema_2, KlineNum=KlineNum, KlineNum2=KlineNum2, az=az, signal_threshold=signal_threshold, below_ema=False)
+                        bot = TradingBot(symbol_2, api_key, secret, password, ema=ema, ema_2=ema_2, KlineNum=KlineNum, KlineNum2=KlineNum2, az=az, signal_threshold=signal_threshold, below_ema=below_ema)
                         bot.evaluate_positions_and_trade(symbol_2)  # 運行 bot
                     else:
                         print(f"File: {filename}, Username: {username}, symbol_2: {symbol_2}, Password not found")
