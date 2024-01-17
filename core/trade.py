@@ -201,8 +201,8 @@ class TradingBot:
         btc_price = btc_data['close'].iloc[-1]  # 最新的BTC收盤價
         symbol_2_price = symbol_2_data['close'].iloc[-1]  # 最新的AVAX收盤價
 
-        current_position = self.evaluate_current_position()  # 假設初始持倉為USDT       
-                
+        current_position = self.evaluate_current_position()  # 假設初始持倉為USDT  
+
         # 檢查價格是否跌破EMA100
         if btc_price < btc_ema.iloc[-2] or symbol_2_price < symbol_2_ema.iloc[-2]:
             if not self.below_ema:
@@ -211,7 +211,8 @@ class TradingBot:
                 self.execute_trade_with_fallback(f'{symbol_2}/USDT', symbol_2_balance, 'USDT')
                 self.below_ema = True
         else:
-            self.below_ema = False 
+            # 如果價格再次升高至EMA100之上，則重置 below_ema
+            self.below_ema = False  
 
         # 決策邏輯
         if -self.az <= btc_signal <= self.az and -self.az <= symbol_2_signal <= self.az:
@@ -273,6 +274,7 @@ class TradingBot:
         print(f"當前BTC價格{btc_price} BTC100EMA {btc_ema.iloc[-1]}")
         print(f"當前{symbol_2}價格{symbol_2_price} {symbol_2} 100EMA {symbol_2_ema.iloc[-1]}")    
         print(f"當前持倉: {current_position}, 目標持倉: {target_position}")
+
 
     # def run(self):
     #     first_run = True  # 添加一個標誌來標示第一次運行

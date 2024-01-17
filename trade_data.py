@@ -42,7 +42,7 @@ async def schedule_task():
         next_run = (server_time + timedelta(days=1)).replace(hour=0, minute=0, second=1, microsecond=0)
         wait_seconds = (next_run - server_time).total_seconds()
         print(f"下次執行時間：{next_run} UTC，等待時間：{wait_seconds}秒")
-        await asyncio.sleep(6)
+        await asyncio.sleep(wait_seconds)
         await get_crypto_data()
 
         # 遍歷目錄中的每個JSON文件
@@ -76,7 +76,7 @@ async def schedule_task():
                         print(f"File: {filename}, Username: {username}, symbol_2: {symbol_2}")
 
                         # 使用從文件中提取的信息創建 TradingBot 實例並運行
-                        bot = TradingBot(symbol_2, api_key, secret, password, ema=ema, ema_2=ema_2, KlineNum=KlineNum, KlineNum2=KlineNum2, az=az, signal_threshold=signal_threshold, below_ema=below_ema)
+                        bot = TradingBot(symbol_2, api_key, secret, password, ema=ema, ema_2=ema_2, KlineNum=KlineNum, KlineNum2=KlineNum2, az=az, signal_threshold=signal_threshold, below_ema=False)
                         bot.evaluate_positions_and_trade(symbol_2)  # 運行 bot
                     else:
                         print(f"File: {filename}, Username: {username}, symbol_2: {symbol_2}, Password not found")
