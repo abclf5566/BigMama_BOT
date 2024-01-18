@@ -4,7 +4,7 @@ import pandas as pd
 import time
 import decimal
 import math
-from datetime import datetime
+from core import tool
 
 def read_csv(filename):
     try:
@@ -123,14 +123,14 @@ class TradingBot:
 
             elif symbol == f'{self.symbol_2}/BTC':
                 if target_position == f'{self.symbol_2}':
-                    # 從BTC轉換到AVAX，執行買入操作
+                    # 從BTC轉換到symbol_2，執行買入操作
                     print(f'使用BTC購買{self.symbol_2}')
                     order_info = self.exchange.create_market_buy_order(symbol, amount)
                     client_order_id = order_info['clientOrderId']
                     print("訂單 ID:", client_order_id)
                 
                 else:
-                    # 從AVAX轉換到BTC，執行賣出操作
+                    # 從symbol_2轉換到BTC，執行賣出操作
                     print(f'使用{self.symbol_2}賣出換取BTC')
                     order_info = self.exchange.create_market_sell_order(symbol, amount)
                     client_order_id = order_info['clientOrderId']
@@ -202,113 +202,31 @@ class TradingBot:
         symbol_2_price = symbol_2_data['close'].iloc[-1]  # 最新的AVAX收盤價
 
         current_position = self.evaluate_current_position()  # 假設初始持倉為USDT  
+        new_position = tool.calculate_trade_decision(current_position,self.symbol_2, btc_signal, symbol_2_signal, symbol_2_btc_signal, self.az, self.signal_threshold)
+        print(new_position)
 
-        # 檢查價格是否跌破EMA100
-        if btc_price < btc_ema.iloc[-2] or symbol_2_price < symbol_2_ema.iloc[-2]:
+        # 检查价格是否跌破EMA100
+        if (current_position == 'BTC' and btc_price < btc_ema.iloc[-2]) or (current_position == f'{symbol_2}' and symbol_2_price < symbol_2_ema.iloc[-2]):
             if not self.below_ema:
                 print("價格跌破EMA100，轉換至USDT")
-                self.execute_trade_with_fallback('BTC/USDT', btc_balance, 'USDT')
-                self.execute_trade_with_fallback(f'{symbol_2}/USDT', symbol_2_balance, 'USDT')
+                new_position = 'USDT'
                 self.below_ema = True
         else:
-            # 如果價格再次升高至EMA100之上，則重置 below_ema
-            self.below_ema = False  
+            self.below_ema = False
 
-        # 決策邏輯
-        if -self.az <= btc_signal <= self.az and -self.az <= symbol_2_signal <= self.az:
-            if btc_signal < 0 and symbol_2_signal < 0:
-                print(f"信號在中性區且 BTC/{symbol_2} 信號小於0保持當前持倉")
-                target_position = current_position
-
-            elif current_position == 'BTC' and symbol_2_btc_signal > 0:
-                print(f"信號在中性區BTC轉換至{symbol_2}")
-                self.execute_trade_with_fallback(f'{symbol_2}/BTC', btc_balance, f'{symbol_2}')
-                self.execute_trade_with_fallback(f'{symbol_2}/USDT', usdt_balance, f'{symbol_2}')
-                target_position = f'{symbol_2}'
-
-            elif current_position == f'{symbol_2}' and symbol_2_btc_signal < 0:
-                print(f"信號在中性區{symbol_2}轉換至BTC")
+        # 根据当前持仓和目标持仓决定是否执行交易
+        if current_position != new_position:
+            if new_position == 'USDT':
+                self.execute_trade_with_fallback('BTC/USDT', btc_balance, 'USDT')
+                self.execute_trade_with_fallback(f'{symbol_2}/USDT', symbol_2_balance, 'USDT')
+            elif new_position == 'BTC':
                 self.execute_trade_with_fallback(f'{symbol_2}/BTC', symbol_2_balance, 'BTC')
                 self.execute_trade_with_fallback('BTC/USDT', usdt_balance, 'BTC')
-                target_position = 'BTC'
-
-            else:
-                print("信號在中性區信號保持當前持倉")
-                target_position = current_position
-
-        elif btc_signal < 0 and symbol_2_signal < 0:
-            print(f"{symbol_2} 或 BTC 訊號為負轉換至USDT")
-            self.execute_trade_with_fallback('BTC/USDT', btc_balance, 'USDT')
-            self.execute_trade_with_fallback(f'{symbol_2}/USDT', symbol_2_balance, 'USDT')
-            target_position = 'USDT'
-
-        else:
-            if current_position == 'BTC' and symbol_2_btc_signal > 0:
-                print(f"轉換至{symbol_2}")
+            elif new_position == f'{symbol_2}':
                 self.execute_trade_with_fallback(f'{symbol_2}/BTC', btc_balance, f'{symbol_2}')
                 self.execute_trade_with_fallback(f'{symbol_2}/USDT', usdt_balance, f'{symbol_2}')
-                target_position = f'{symbol_2}'
-
-            elif current_position == f'{symbol_2}' and symbol_2_btc_signal < 0:
-                print("轉換至BTC")
-                self.execute_trade_with_fallback(f'{symbol_2}/BTC', symbol_2_balance, 'BTC')
-                self.execute_trade_with_fallback('BTC/USDT', usdt_balance, 'BTC')            
-                target_position = 'BTC'
-            else:
-                if abs(btc_signal - symbol_2_signal) > self.signal_threshold:
-                    if btc_signal > symbol_2_signal:
-                        print("signal_threshold轉換至BTC")
-                        self.execute_trade_with_fallback(f'{symbol_2}/BTC', symbol_2_balance, 'BTC')
-                        self.execute_trade_with_fallback('BTC/USDT', usdt_balance, 'BTC')    
-                        target_position = 'BTC'
-                    else :
-                        print(f"signal_threshold轉換至{symbol_2}")
-                        self.execute_trade_with_fallback(f'{symbol_2}/BTC', btc_balance, f'{symbol_2}')
-                        self.execute_trade_with_fallback(f'{symbol_2}/USDT', usdt_balance, f'{symbol_2}')                    
-                        target_position = f'{symbol_2}'
-                else:
-                    target_position = current_position
-
 
         print(f"BTC滾動回報率: {btc_signal*100:.3f}%, {symbol_2}滾動回報率: {symbol_2_signal*100:.3f}%, {symbol_2}/BTC滾動回報率: {symbol_2_btc_signal*100:.3f}%")
         print(f"當前BTC價格{btc_price} BTC100EMA {btc_ema.iloc[-1]}")
         print(f"當前{symbol_2}價格{symbol_2_price} {symbol_2} 100EMA {symbol_2_ema.iloc[-1]}")    
-        print(f"當前持倉: {current_position}, 目標持倉: {target_position}")
-
-
-    # def run(self):
-    #     first_run = True  # 添加一個標誌來標示第一次運行
-
-    #     while True:
-    #         current_time = datetime.now()
-
-    #         # 在第一次運行時立即執行交易邏輯
-    #         if first_run:
-    #             self.evaluate_positions_and_trade()
-    #             print(f"首次執行交易邏輯於 {current_time}")
-    #             first_run = False  # 更新標誌以避免重複運行
-
-    #         # 每小時執行一次交易邏輯
-    #         if current_time.minute == 1 and current_time.second == 0:
-    #             self.evaluate_positions_and_trade()
-    #             print(f"已於{current_time}執行交易邏輯")
-    #             time.sleep(60)
-
-    #         time.sleep(1)
-
-#79EMA 189EMA 最佳參數組合: (20, 37, 0.1, 0.03) 最大回撤: 56.04% 最大回撤發生的時間段: 從 2021-05-18 00:00:00 到 2021-05-23 00:00:00 年化收益: 444.42% 最終資產價值: 308451.71 USDT 勝率為50.47% 1d btc/matic/usdt
-#BTC 39EMA SOL 179EMA  最佳參數組合: (9, 16, 0.06, 0.08)  最大回撤: 37.75% 最大回撤發生的時間段: 從 2021-05-18 00:00:00 到 2021-06-01 00:00:00 年化收益: 575.71% 最終資產價值: 614620.49 USDT 勝率為49.26% 1d btc/SOL/usdt
-            
-# 使用示例
-# api_key = '0de1ec2d-9261-4915-9104-519294dd9c7e'
-# secret = 'F58CBB3F57E902C0FF702C33F05008C0'
-# password = '!Aa5566288'
-# symbol_2 = 'SOL'
-# KlineNum = 9
-# KlineNum2 = 16
-# az = 0.06
-# signal_threshold = 0.08
-# ema = 39
-# ema_2 = 179
-# bot = TradingBot(symbol_2, api_key, secret, password, ema=ema, ema_2=ema_2, KlineNum=KlineNum, KlineNum2=KlineNum2, az=az, signal_threshold=signal_threshold)
-# bot.run()
+        print(f"當前持倉: {current_position}, 目標持倉: {new_position}")

@@ -42,7 +42,7 @@ async def schedule_task():
         next_run = (server_time + timedelta(days=1)).replace(hour=0, minute=0, second=1, microsecond=0)
         wait_seconds = (next_run - server_time).total_seconds()
         print(f"下次執行時間：{next_run} UTC，等待時間：{wait_seconds}秒")
-        await asyncio.sleep(wait_seconds)
+        await asyncio.sleep(5)
         await get_crypto_data()
 
         # 遍歷目錄中的每個JSON文件
@@ -53,6 +53,7 @@ async def schedule_task():
                     data = json.load(userinfo)
                     username = data.get("username")
                     symbol_2 = data.get("symbol_2")
+                    user_id = data.get("user_id")
                     if symbol_2 == 'SOL':
                         KlineNum = 9
                         KlineNum2 = 16
@@ -77,7 +78,10 @@ async def schedule_task():
 
                         # 使用從文件中提取的信息創建 TradingBot 實例並運行
                         bot = TradingBot(symbol_2, api_key, secret, password, ema=ema, ema_2=ema_2, KlineNum=KlineNum, KlineNum2=KlineNum2, az=az, signal_threshold=signal_threshold, below_ema=False)
-                        bot.evaluate_positions_and_trade(symbol_2)  # 運行 bot
+                        try:
+                            bot.evaluate_positions_and_trade(symbol_2)  # 運行 bot
+                        except:
+                            print(f'用戶: {username} ID: {user_id} 交易執行出錯')
                     else:
                         print(f"File: {filename}, Username: {username}, symbol_2: {symbol_2}, Password not found")
 
