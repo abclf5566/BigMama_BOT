@@ -110,11 +110,12 @@ class TradingBot:
                 'quoteOrderQty': amount*0.999  # 指定想要花費的數量
             }
 
-            # 獲取交易對的當前市場價格
-            #market_price = self.exchange.fetch_ticker(f'{symbol}')['last']
+            # # 獲取交易對的當前市場價格
+            # market_price = self.exchange.fetch_ticker(f'{self.symbol_2}/BTC')['last']
 
-            # 計算最大可購買的目標交易數量
-            #amount = amount / market_price
+            # # 計算最大可購買的目標交易數量
+            # if symbol in ['BTC/USDT',f'{self.symbol_2}/BTC']:
+            #     symbol_amount = amount / market_price
 
             if symbol in ['BTC/USDT', f'{self.symbol_2}/USDT'] and target_position == 'USDT':
                 # 執行賣出操作
