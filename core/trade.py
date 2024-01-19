@@ -100,7 +100,7 @@ class TradingBot:
         raise Exception("獲取OHLCV數據失敗，達到最大重試次數。")
 
     def execute_trade_with_fallback(self, symbol, amount, target_position):
-        # try:
+        try:
             # 加載市場信息
             market_info = self.exchange.load_markets()
             symbol_info = market_info['BTC/USDT']
@@ -110,18 +110,25 @@ class TradingBot:
             if symbol == f'{self.symbol_2}/BTC' and target_position == self.symbol_2:
                 # 使用BTC購買SYMBOL_2
                 market_price = self.exchange.fetch_ticker(symbol)['last']
-                transaction_amount = truncate(amount*1.2 / market_price, count_decimal_places(symbol_2_info['precision']['amount']))
+                transaction_amount = truncate(amount / market_price, count_decimal_places(symbol_2_info['precision']['amount']))
                 order_info = self.exchange.create_market_buy_order(symbol, transaction_amount)
+
+            elif symbol == f'{self.symbol_2}/BTC' and target_position == 'BTC':
+                # 使用BTC購買SYMBOL_2
+                order_info = self.exchange.create_market_sell_order(symbol, transaction_amount)
+
             elif symbol == 'BTC/USDT' and target_position == 'BTC':
                 # 使用USDT購買BTC
                 market_price = self.exchange.fetch_ticker(symbol)['last']
-                transaction_amount = truncate(amount*1.2 / market_price, count_decimal_places(symbol_info['precision']['amount']))
+                transaction_amount = truncate(amount / market_price, count_decimal_places(symbol_info['precision']['amount']))
                 order_info = self.exchange.create_market_buy_order(symbol, transaction_amount)
+
             elif symbol == f'{self.symbol_2}/USDT' and target_position == self.symbol_2:
                 # 使用USDT購買SYMBOL_2
                 market_price = self.exchange.fetch_ticker(symbol)['last']
-                transaction_amount = truncate(amount*1.2 / market_price, count_decimal_places(symbol_2_info['precision']['amount']))
+                transaction_amount = truncate(amount / market_price, count_decimal_places(symbol_2_info['precision']['amount']))
                 order_info = self.exchange.create_market_buy_order(symbol, transaction_amount)
+
             elif symbol in ['BTC/USDT', f'{self.symbol_2}/USDT'] and target_position == 'USDT':
                 # 執行賣出操作
                 order_info = self.exchange.create_market_sell_order(symbol, amount)
@@ -131,12 +138,12 @@ class TradingBot:
             client_order_id = order_info['clientOrderId']
             print(f"訂單ID: {client_order_id}, 成功下單: {symbol} 數量 {transaction_amount}")
 
-        # except ccxt.InvalidOrder as e:
-        #     print(f"下單失敗，訂單不合法: {e}. 交易嘗試: {symbol} 數量 {transaction_amount}")
-        # except ccxt.InsufficientFunds as e:
-        #     print(f"下單失敗，余額不足: {e}. 交易嘗試: {symbol} 數量 {transaction_amount}")
-        # except Exception as e:
-        #     print(f"下單失敗，出現其他錯誤: {e}. 交易嘗試: {symbol} 數量 {transaction_amount}")
+        except ccxt.InvalidOrder as e:
+            print(f"下單失敗，訂單不合法: {e}. 交易嘗試: {symbol} 數量 {transaction_amount}")
+        except ccxt.InsufficientFunds as e:
+            print(f"下單失敗，余額不足: {e}. 交易嘗試: {symbol} 數量 {transaction_amount}")
+        except Exception as e:
+            print(f"下單失敗，出現其他錯誤: {e}. 交易嘗試: {symbol} 數量 {transaction_amount}")
 
     def evaluate_positions_and_trade(self, symbol_2):
         """
@@ -189,18 +196,17 @@ class TradingBot:
         else:
             self.below_ema = False
 
-        self.execute_trade_with_fallback(f'{self.symbol_2}/BTC', btc_balance, f'{self.symbol_2}')
-        # # 根據當前持倉和目標持倉決定是否執行交易
-        # if current_position != new_position:
-        #     if new_position == 'USDT':
-        #         self.execute_trade_with_fallback('BTC/USDT', btc_balance, 'USDT')
-        #         self.execute_trade_with_fallback(f'{self.symbol_2}/USDT', symbol_2_balance, 'USDT')
-        #     elif new_position == 'BTC':
-        #         self.execute_trade_with_fallback(f'{self.symbol_2}/BTC', symbol_2_balance, 'BTC')
-        #         self.execute_trade_with_fallback('BTC/USDT', usdt_balance, 'BTC')
-        #     elif new_position == f'{self.symbol_2}':
-        #         self.execute_trade_with_fallback(f'{self.symbol_2}/BTC', btc_balance, f'{self.symbol_2}')
-        #         self.execute_trade_with_fallback(f'{self.symbol_2}/USDT', usdt_balance, f'{self.symbol_2}')
+        # 根據當前持倉和目標持倉決定是否執行交易
+        if current_position != new_position:
+            if new_position == 'USDT':
+                self.execute_trade_with_fallback('BTC/USDT', btc_balance, 'USDT')
+                self.execute_trade_with_fallback(f'{self.symbol_2}/USDT', symbol_2_balance, 'USDT')
+            elif new_position == 'BTC':
+                self.execute_trade_with_fallback(f'{self.symbol_2}/BTC', symbol_2_balance, 'BTC')
+                self.execute_trade_with_fallback('BTC/USDT', usdt_balance, 'BTC')
+            elif new_position == f'{self.symbol_2}':
+                self.execute_trade_with_fallback(f'{self.symbol_2}/BTC', btc_balance, f'{self.symbol_2}')
+                self.execute_trade_with_fallback(f'{self.symbol_2}/USDT', usdt_balance, f'{self.symbol_2}')
 
         print(f"BTC滾動回報率: {btc_signal*100:.3f}%, {symbol_2}滾動回報率: {symbol_2_signal*100:.3f}%, {symbol_2}/BTC滾動回報率: {symbol_2_btc_signal*100:.3f}%")
         print(f"當前BTC價格{btc_price} BTC EMA {btc_ema.iloc[-1]}")
