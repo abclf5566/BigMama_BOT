@@ -42,7 +42,7 @@ async def schedule_task():
         next_run = (server_time + timedelta(days=1)).replace(hour=0, minute=0, second=1, microsecond=0)
         wait_seconds = (next_run - server_time).total_seconds()
         print(f"下次執行時間：{next_run} UTC，等待時間：{wait_seconds}秒")
-        await asyncio.sleep(wait_seconds)
+        await asyncio.sleep(6)
         await get_crypto_data()
 
         # 遍歷目錄中的每個JSON文件
