@@ -47,7 +47,7 @@ class Trade_setting(Cog_extension):
             return str(interaction.user.id) == self.user_id
 
         async def on_timeout(self):
-            self.choice = None  # 如果超时，则设置选择为 None
+            self.choice = None  # 如果超時，則設置選擇為 None
 
     class APIModal(Modal):
         def __init__(self, user_id, choice, title="輸入您的OKX API Key"):

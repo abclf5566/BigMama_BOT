@@ -55,9 +55,9 @@ class TradingBot:
         balance = self.exchange.fetch_balance()
 
         # 安全地獲取各資產的余額（如果沒有則返回0）
-        btc_balance = balance['BTC'].get('free', 0)
+        btc_balance = balance.get('BTC', {}).get('free', 0)
         symbol_2_balance = balance.get(self.symbol_2, {}).get('free', 0)
-        usdt_balance = balance['USDT'].get('free', 0)
+        usdt_balance = balance.get('USDT', {}).get('free', 0)
 
         # 計算各資產的價值（以USDT為單位）
         btc_value = btc_balance * btc_price
@@ -127,8 +127,9 @@ class TradingBot:
                 # 使用USDT購買SYMBOL_2
                 market_price = self.exchange.fetch_ticker(symbol)['last']
                 transaction_amount = truncate(amount / market_price, count_decimal_places(symbol_2_info['precision']['amount']))
-                order_info = self.exchange.create_market_buy_order(symbol, transaction_amount)
-
+                #order_info = self.exchange.create_market_buy_order(symbol, transaction_amount*0.999)
+                order_info = self.exchange.create_market_buy_order(symbol, amount)    
+           
             elif symbol in ['BTC/USDT', f'{self.symbol_2}/USDT'] and target_position == 'USDT':
                 # 執行賣出操作
                 order_info = self.exchange.create_market_sell_order(symbol, amount)
