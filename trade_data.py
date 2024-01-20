@@ -7,11 +7,18 @@ import os
 import json
 
 async def fetch_data(exchange, symbol):
-    try:
-        data = await exchange.fetch_ohlcv(symbol, '1d', limit=300)
-        return pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    finally:
-        await exchange.close()
+    retry_count = 3  # 設置重試次數
+    while retry_count > 0:
+        try:
+            await asyncio.sleep(0.5)
+            data = await exchange.fetch_ohlcv(symbol, '1d', limit=300)
+            return pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        except ccxt.RequestTimeout as e:
+            print(f"請求超時，正在重試...剩余重試次數: {retry_count}")
+            retry_count -= 1
+        finally:
+            await exchange.close()
+    raise Exception("獲取數據失敗，超過最大重試次數")
 
 async def get_crypto_data():
     # 定義幣種列表
