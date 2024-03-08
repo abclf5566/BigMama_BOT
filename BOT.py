@@ -64,7 +64,7 @@ async def trade_command(interaction: discord.Interaction):
 @commands.is_owner()
 async def load_extension(ctx, extension):
     try:
-        await bot.load_extension(extension)
+        bot.load_extension(extension)
         await ctx.send(f"Extension {extension} loaded.")
     except Exception as e:
         await ctx.send(f"Error loading extension {extension}: {e}")
@@ -73,7 +73,7 @@ async def load_extension(ctx, extension):
 @commands.is_owner()
 async def unload_extension(ctx, extension):
     try:
-        await bot.unload_extension(extension)
+        bot.unload_extension(extension)
         if extension not in bot.extensions:
             await ctx.send(f"Extension {extension} unloaded.")
         else:
@@ -85,7 +85,7 @@ async def unload_extension(ctx, extension):
 @commands.is_owner()
 async def reload_extension(ctx, extension):
     try:
-        await bot.reload_extension(extension)
+        bot.reload_extension(extension)
         await ctx.send(f"Extension {extension} reloaded.")
     except Exception as e:
         await ctx.send(f"Error reloading extension {extension}: {e}")
@@ -105,13 +105,13 @@ async def load_extensions(bot):
         if filename.endswith('.py') and not filename.startswith('__'):
             extension = f'cmds.{filename[:-3]}'
             try:
-                await bot.load_extension(extension)
+                bot.load_extension(extension)
                 print(f'Loaded extension: {extension}')
             except Exception as e:
                 print(f'Failed to load extension {extension}.', e)
 
 def main():
-    asyncio.run(load_extensions(bot))
+    asyncio.run(load_all_extensions(bot))
     bot.run(data['token'])
 
 if __name__ == "__main__":
